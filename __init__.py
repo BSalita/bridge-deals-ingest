@@ -11,7 +11,7 @@ This package provides functionality to:
 - Export to CSV for further analysis
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 # Note: With a flat module structure, imports should be done directly:
 # Example:

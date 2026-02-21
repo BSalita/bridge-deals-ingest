@@ -66,8 +66,9 @@ def collect_files(paths: List[Path]) -> List[Path]:
                 files.append(path)
         elif path.is_dir():
             # Recursively find all supported files
-            for ext in parsers.keys():
-                files.extend(path.rglob(f"*{ext}"))
+            for file_path in path.rglob("*"):
+                if get_file_extension(file_path) in parsers.keys() and file_path.is_file():
+                    files.append(file_path)
     
     return files
 
