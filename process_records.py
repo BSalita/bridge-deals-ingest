@@ -523,11 +523,18 @@ def extract_derived_features(rawdf: pl.DataFrame, generateDD: bool = False) -> T
         deals_df.select(["HandUID", "Hands", "Dealer", 'Vulnerability'])
         .unique(subset=["HandUID"], keep="first")
     )
-    hands_df = hands_df.with_columns(
-            pl.col("Hands")
-            .map_elements(process_hands, return_dtype=pl.Struct)
-            .alias("processed_data")
-        ).unnest("processed_data")  # Expand dict to separate columns
+
+    # Process all hands at once
+    processed_list = [process_hands(hand) for hand in hands_df["Hands"]]
+
+    # Create a new dataframe from the processed data
+    processed_df = pl.DataFrame(processed_list)
+
+    # Join back with original data
+    hands_df = pl.concat([
+        hands_df.select(["HandUID", "Dealer", "Vulnerability"]),
+        processed_df
+    ], how="horizontal")
     hands_df = hands_df.filter(pl.col("N_Hand").is_not_null()).with_columns(
         pl.format("W:{} {} {} {}", 
                 pl.col("W_Hand"), pl.col("N_Hand"), pl.col("E_Hand"), pl.col("S_Hand"))
