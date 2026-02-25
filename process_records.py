@@ -775,7 +775,7 @@ def add_leader_view(boardsDf: pl.DataFrame) -> pl.DataFrame:
         
     LeaderView_columns = ["BoardUID", "DealNum", "Contract", "Declarer", "Leader", "Lead", "SuitHolding", "Lead_Type", "Led_Suit_Len"]
     boardsDf = boardsDf.with_columns(
-            pl.col("Declarer").map_elements(lambda x: Direction.from_str(x).next().abbreviation(), return_dtype=pl.Utf8).alias("Leader")
+            pl.col("Declarer").map_elements(lambda x: Direction.from_str(x).next().abbreviation() if x else None, return_dtype=pl.Utf8).alias("Leader")
         ).with_columns(
             _create_player_column_mapping("Leader", "Hand").alias("LeaderHand")
         ).with_columns(
@@ -828,8 +828,8 @@ def get_response_bid(row):
 
 def add_opener_view(boardsDf: pl.DataFrame) -> pl.DataFrame:
     boardsDf = boardsDf.with_columns([
-            pl.col("Opener").map_elements(lambda x: Direction.from_str(x).next().abbreviation(), return_dtype=pl.Utf8).alias("LHO"),
-            pl.col("Opener").map_elements(lambda x: Direction.from_str(x).previous().abbreviation(), return_dtype=pl.Utf8).alias("RHO")
+            pl.col("Opener").map_elements(lambda x: Direction.from_str(x).next().abbreviation() if x else None, return_dtype=pl.Utf8).alias("LHO"),
+            pl.col("Opener").map_elements(lambda x: Direction.from_str(x).previous().abbreviation() if x else None, return_dtype=pl.Utf8).alias("RHO")
         ]).with_columns([
             pl.struct("Vulnerability", "Opener")
             .map_elements(lambda combined: relative_vulnerability(combined["Vulnerability"], combined["Opener"]), return_dtype=pl.Utf8)
@@ -901,7 +901,7 @@ def add_declarer_view(boardsDf: pl.DataFrame) -> pl.DataFrame:
     DeclarerView_columns = ["BoardUID", "DealUID", "Declarer", "DeclarerVul", "DeclarerScore", 
                             "DeclarerHCP", "DummyHCP", "TotalHCP", "DeclarerShape", "DummyShape", "DeclarerPattern", "DummyPattern"]
     boardsDf = boardsDf.with_columns(
-            pl.col("Declarer").map_elements(lambda x: Direction.from_str(x).partner().abbreviation(), return_dtype=pl.Utf8).alias("Dummy")
+            pl.col("Declarer").map_elements(lambda x: Direction.from_str(x).partner().abbreviation() if x else None, return_dtype=pl.Utf8).alias("Dummy")
         ).with_columns([
             pl.struct("Vulnerability", "Declarer")
             .map_elements(lambda combined: relative_vulnerability(combined["Vulnerability"], combined["Declarer"]), return_dtype=pl.Utf8)
@@ -941,7 +941,7 @@ def _analyze_records(processed_dealsdf: pl.DataFrame, processed_boardsdf: pl.Dat
     validBoards = validBoards.filter((pl.col("ContractValidation") != "Mismatch") & (pl.col("DeclarerValidation") != "Mismatch"))
     validBoards = validBoards.filter((pl.col("LeadValidation") != "Mismatch") & ((pl.col("LeadValidation") != "Missing") | (pl.col("Contract") == "AP")))
     validBoards = validBoards.filter((pl.col("ScoreValidation") != "Mismatch") & (pl.col("ScoreValidation") != "Missing"))
-    deal_counts: int = validBoards.group_by("DealUID").count()
+    deal_counts: pl.DataFrame = validBoards.group_by("DealUID").count()
     deals_to_keep = deal_counts.filter(pl.col("count") == 2).select("DealUID")
     validBoards = validBoards.join(deals_to_keep, on="DealUID", how="inner").sort(["DealUID", "TableID"])
     
