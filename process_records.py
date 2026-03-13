@@ -419,7 +419,7 @@ def add_uids(df: pl.DataFrame) -> pl.DataFrame:
         ]).with_columns([
             # BoardUID: rank over all 8 fields that define a unique board
             # Leverages DealUID computation by adding the remaining 5 fields
-            pl.struct(['DealUID', 'DealNum', 'TableID', 'North', 'East', 'South', 'West']).rank('dense').alias('BoardUID')
+            pl.struct(['HandUID', 'North', 'East', 'South', 'West']).rank('dense').alias('BoardUID')
         ])
     
     # Reorder columns
@@ -487,10 +487,27 @@ def df_to_csv(which: pl.DataFrame, fname: str, **kwargs) -> None:
         which.write_csv(f"{output_dir}/{fname}.csv")
         logging.warning(f"Wrote {fname}.csv")
     
-def process_hands(hands: str) -> Dict[str, str]:
-    hands_dict: Optional[Dict[str, str]] = parse_hand_string(hands)
-    if hands_dict is None:
+def normalize_hands(hand_str: str) -> Optional[str]:
+    """Canonicalize a PBN hand string to always start from W.
+    Two equivalent layouts with different starting-direction prefixes
+    will produce the same string, ensuring they get the same HandUID.
+    Returns None for invalid hands so they are filtered out downstream."""
+    result = parse_hand_string(hand_str)
+    if result is None:
+        return None
+    return f"W:{result['W_Hand']} {result['N_Hand']} {result['E_Hand']} {result['S_Hand']}"
+
+def process_hands(hands: Optional[str]) -> Dict[str, str]:
+    # Hands is already canonical "W:{W} {N} {E} {S}" — split directly
+    if hands is None:
         return {}
+    parts = hands[2:].split()
+    if len(parts) != 4:
+        return {}
+    hands_dict: Dict[str, str] = {
+        'W_Hand': parts[0], 'N_Hand': parts[1],
+        'E_Hand': parts[2], 'S_Hand': parts[3]
+    }
     # Analyze each hand
     for direction in ['N', 'E', 'S', 'W']:
         hand_features = analyze_hand(hands_dict[f"{direction}_Hand"])
@@ -540,6 +557,7 @@ def extract_derived_features(rawdf: pl.DataFrame, generateDD: bool = False) -> T
                 pl.col("W_Hand"), pl.col("N_Hand"), pl.col("E_Hand"), pl.col("S_Hand"))
         .alias("Hands")
     )
+    hands_df = hands_df.sort("Hands")
     valid_hand_lookup = hands_df.select("HandUID")
 
     if generateDD:
@@ -780,13 +798,13 @@ def add_leader_view(boardsDf: pl.DataFrame) -> pl.DataFrame:
             _create_player_column_mapping("Leader", "Hand").alias("LeaderHand")
         ).with_columns(
             pl.struct("LeaderHand", "Lead")
-            .map_elements(lambda combined: get_leader_holding(combined["LeaderHand"], combined["Lead"]), return_dtype=pl.Utf8)
+            .map_elements(lambda combined: get_leader_holding(combined["LeaderHand"], combined["Lead"]) if combined["Lead"] else "", return_dtype=pl.Utf8)
             .alias("SuitHolding")
         ).with_columns(
             pl.struct("SuitHolding", "Lead")
-            .map_elements(lambda combined: lead_type(combined["SuitHolding"], combined["Lead"]), return_dtype=pl.Utf8)
+            .map_elements(lambda combined: lead_type(combined["SuitHolding"], combined["Lead"]) if combined["Lead"] else "NO_LEAD", return_dtype=pl.Utf8)
             .alias("Lead_Type"),
-            pl.col("SuitHolding").map_elements(len, return_dtype=pl.Int64).alias("Led_Suit_Len")
+            pl.col("SuitHolding").map_elements(lambda x: len(x) if x else 0, return_dtype=pl.Int64).alias("Led_Suit_Len")
         )
     # df_to_csv(boardsDf.select(pl.col(LeaderView_columns)), "LeaderView")
     return boardsDf
@@ -969,6 +987,9 @@ def _process_records(reclist: List[BoardRecord], generateDD: bool = False, outdi
     global output_dir
     output_dir = outdir
     rawdf: pl.DataFrame = pl.from_records(reclist)
+    rawdf = rawdf.with_columns(
+        [pl.col(c).str.to_uppercase() for c in ["North", "South", "East", "West"]]
+    )
     df_to_csv(rawdf, "RawData")
 
     # Validate dealer and vulnerability per deal
@@ -980,6 +1001,14 @@ def _process_records(reclist: List[BoardRecord], generateDD: bool = False, outdi
     rawdf = validate_and_combine_columns(rawdf, "Dealer", "dealer2", "DealerValidation")
     rawdf = validate_and_combine_columns(rawdf, "Vulnerability", "vul2", "VulValidation")
     rawdf = rawdf.drop(["dealer2", "vul2"])
+    # Canonicalize Hands to "W:..." before UID assignment so that equivalent
+    # layouts with different starting-direction prefixes get the same HandUID
+    rawdf = rawdf.with_columns(
+        pl.col("Hands").map_elements(normalize_hands, return_dtype=pl.Utf8).alias("Hands")
+    )
+    rawdf = rawdf.with_columns(
+        [pl.col(c).str.to_uppercase() for c in ["North", "South", "East", "West"]]
+    )
     # Add UIDs and fix scoring form
     rawdf = add_uids(rawdf)
     rawdf = update_scoring_form(rawdf)

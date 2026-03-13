@@ -288,7 +288,7 @@ class PBNParser:
             Dealer=self.current_game_tags.get('Dealer', ''),
             Vulnerability=translate_vul(self.current_game_tags.get('Vulnerable') or 'X'),
             Hands=self.current_game_tags.get('Deal', ''),
-            TableID=table_name,
+            TableID=table_name.upper(),
             North=north_name,
             East=east_name,
             South=south_name,

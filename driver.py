@@ -2,6 +2,7 @@ import logging
 import cProfile
 import pstats
 import sys
+import faulthandler
 from line_profiler import LineProfiler
 from pathlib import Path
 from argparse import ArgumentParser
@@ -14,7 +15,7 @@ def _main_impl(lp: LineProfiler) -> None:
     # Process arguments
     arg_list = ArgumentParser(description="Process bridge game files and generate analysis")
     arg_list.add_argument("db_locn", help="Database folder path for output files")
-    arg_list.add_argument("files", nargs="+", help="Bridge data files or directories to process (PBN, LIN, JSON, RBN)")
+    arg_list.add_argument("files", nargs="+", help="Bridge data files or directories to process (PBN, LIN, JSON, RBN, CSV)")
     arg_list.add_argument("--profile", action="store_true", help="Enable performance profiling")
     arg_list.add_argument("-d", "--doubledummy", action="store_true", help="Generate double-dummy analysis")
     mode_group = arg_list.add_mutually_exclusive_group()
@@ -22,6 +23,7 @@ def _main_impl(lp: LineProfiler) -> None:
     mode_group.add_argument("-p", "--processonly", action="store_true", help="Only process, do not analyze")
     args = arg_list.parse_args()
     output_dir: Path = Path(args.db_locn if args.db_locn else "./output")
+    # faulthandler.enable()  # Enable segfault handler for better debugging of native code issues
     
     try:
         # Run the ingestion

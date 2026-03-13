@@ -257,7 +257,7 @@ def _parse_board_record(lin_dict: Dict[str, List[str]], board_name: str, event: 
         Dealer=deal.Dealer,
         Vulnerability=deal.Vulnerability,
         Hands=deal.Hands,
-        TableID=board_name[:1],
+        TableID=board_name[:1].upper(),
         North=player_names[Direction.NORTH],
         East=player_names[Direction.EAST],
         South=player_names[Direction.SOUTH],

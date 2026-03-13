@@ -4,6 +4,7 @@ from pbn_parse import parse_pbn_file
 from lin_parse import parse_lin_file
 from json_parse import parse_json_file
 from rbn_parse import parse_rbn_file
+from csv_parse import parse_csv_file
 from pathlib import Path
 from typing import List, Dict, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -45,6 +46,7 @@ register_parser(".PBN", parse_pbn_file)
 register_parser(".JSON", parse_json_file)
 register_parser(".RBN", parse_rbn_file)
 register_parser(".LIN", parse_lin_file)
+register_parser(".CSV", parse_csv_file)
 
 def process_file(file_path: Path, collector: DataCollector) -> None:
     """Process a single file and add results to collector."""

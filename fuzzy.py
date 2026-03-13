@@ -24,12 +24,10 @@ def fuzzy_deduplicate_events(
         number_sensitive: If True, treats number differences as significant
     
     Returns:
-        Tuple of (unique_events, mapping) where:
-        - unique_events: List of deduplicated event names
-        - mapping: Dict mapping original names to their canonical versions
+        Dict mapping each original name to its canonical (deduplicated) name
     """
     if not event_names:
-        return [], {}, []
+        return {}
     
     # Remove exact duplicates and keep track of counts
     name_counts = Counter(event_names)
@@ -245,16 +243,17 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     
     # Perform deduplication with case-insensitive, number-sensitive matching
-    unique_events, mapping, _ = fuzzy_deduplicate_events(
-        sample_events, 
+    mapping = fuzzy_deduplicate_events(
+        sample_events,
         similarity_threshold=85.0,
         case_sensitive=False,    # Ignore case differences
         number_sensitive=True    # Treat number differences as significant
     )
-    
+    unique_events = sorted(set(mapping.values()))
+
     # Show results
     print("\nUnique events after deduplication:")
-    for i, event in enumerate(sorted(unique_events), 1):
+    for i, event in enumerate(unique_events, 1):
         print(f"  {i:2d}. {event}")
     
     print("\n" + "="*60)

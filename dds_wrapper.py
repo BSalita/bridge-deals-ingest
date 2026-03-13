@@ -69,6 +69,9 @@ def create_dd_columns(df: pl.DataFrame, batch_size: int = 32) -> pl.DataFrame:
         
         # Calculate DD tables for the batch
         try:
+            # print(f"Processing batch starting at deal {batch_start}:", flush=True)
+            # for j, row in enumerate(batch_data.iter_rows(named=True)):
+            #     print(f"  [{batch_start + j}] {row['Hands']}", flush=True)
             dd_table_list = calc_all_tables(batch_deals)
             
             # Extract results and store in arrays
